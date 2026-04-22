@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CanteenHub - Order Your Meal</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-utensils"></i>
+                <span>CanteenHub</span>
+            </div>
+            <div class="nav-menu">
+                <a href="#home" class="nav-link active">Home</a>
+                <a href="#menu" class="nav-link">Menu</a>
+                <a href="#orders" class="nav-link">My Orders</a>
+                <a href="#profile" class="nav-link">Profile</a>
+            </div>
+            <div class="nav-actions">
+                <div class="cart-icon" onclick="toggleCart()">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span class="cart-count" id="cartCount">0</span>
+                </div>
+                <div class="user-info" id="userInfo">
+                    <span class="user-name" id="userName">Guest</span>
+                    <span class="user-points" id="userPoints">0 pts</span>
+                </div>
+                <button class="login-btn" id="loginBtn" onclick="toggleAuthModal()">Login</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Home Section -->
+        <section id="home" class="section active">
+            <div class="hero">
+                <div class="hero-content">
+                    <h1>Welcome to CanteenHub</h1>
+                    <p>Order delicious meals from your campus canteen with ease</p>
+                    <button class="cta-btn" onclick="showSection('menu')">Browse Menu</button>
+                </div>
+                <div class="hero-image">
+                    <i class="fas fa-hamburger"></i>
+                </div>
+            </div>
+            
+            <div class="features">
+                <div class="feature-card">
+                    <i class="fas fa-clock"></i>
+                    <h3>Real-time Tracking</h3>
+                    <p>Track your order from kitchen to your table</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-star"></i>
+                    <h3>Loyalty Points</h3>
+                    <p>Earn points with every order and redeem rewards</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-heart"></i>
+                    <h3>Dietary Preferences</h3>
+                    <p>Customize orders based on your dietary needs</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Menu Section -->
+        <section id="menu" class="section">
+            <div class="menu-header">
+                <h2>Our Menu</h2>
+                <div class="menu-filters">
+                    <button class="filter-btn active" data-category="all">All</button>
+                    <button class="filter-btn" data-category="main">Main Course</button>
+                    <button class="filter-btn" data-category="snacks">Snacks</button>
+                    <button class="filter-btn" data-category="beverages">Beverages</button>
+                    <button class="filter-btn" data-category="desserts">Desserts</button>
+                </div>
+            </div>
+            
+            <div class="menu-grid" id="menuGrid">
+                <!-- Menu items will be populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Orders Section -->
+        <section id="orders" class="section">
+            <div class="orders-header">
+                <h2>My Orders</h2>
+                <div class="order-tabs">
+                    <button class="tab-btn active" data-status="active">Active</button>
+                    <button class="tab-btn" data-status="completed">Completed</button>
+                    <button class="tab-btn" data-status="cancelled">Cancelled</button>
+                </div>
+            </div>
+            
+            <div class="orders-container" id="ordersContainer">
+                <!-- Orders will be populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Profile Section -->
+        <section id="profile" class="section">
+            <div class="profile-container">
+                <div class="profile-header">
+                    <h2>My Profile</h2>
+                    <div class="loyalty-card">
+                        <h3>Loyalty Points</h3>
+                        <div class="points-display">
+                            <span class="points-value" id="profilePoints">0</span>
+                            <span class="points-label">points</span>
+                        </div>
+                        <div class="points-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="pointsProgress"></div>
+                            </div>
+                            <span class="next-reward">Next reward at 100 points</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="profile-content">
+                    <div class="profile-info">
+                        <h3>Personal Information</h3>
+                        <form class="profile-form" id="profileForm">
+                            <div class="form-group">
+                                <label for="fullName">Full Name</label>
+                                <input type="text" id="fullName" name="fullName" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" id="email" name="email" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="phone">Phone Number</label>
+                                <input type="tel" id="phone" name="phone" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="studentId">Student/Staff ID</label>
+                                <input type="text" id="studentId" name="studentId" required>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <div class="dietary-preferences">
+                        <h3>Dietary Preferences</h3>
+                        <div class="preference-options">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="vegetarian">
+                                <span class="checkmark"></span>
+                                Vegetarian
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="vegan">
+                                <span class="checkmark"></span>
+                                Vegan
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="glutenFree">
+                                <span class="checkmark"></span>
+                                Gluten Free
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="dairyFree">
+                                <span class="checkmark"></span>
+                                Dairy Free
+                            </label>
+                        </div>
+                        
+                        <div class="allergies-section">
+                            <h4>Allergies</h4>
+                            <div class="allergy-tags" id="allergyTags">
+                                <!-- Allergy tags will be populated by JavaScript -->
+                            </div>
+                            <input type="text" id="allergyInput" placeholder="Add allergy (press Enter)">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="profile-actions">
+                    <button class="save-btn" onclick="saveProfile()">Save Changes</button>
+                    <button class="logout-btn" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Shopping Cart Sidebar -->
+    <div class="cart-sidebar" id="cartSidebar">
+        <div class="cart-header">
+            <h3>Shopping Cart</h3>
+            <button class="close-cart" onclick="toggleCart()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="cart-items" id="cartItems">
+            <!-- Cart items will be populated by JavaScript -->
+        </div>
+        
+        <div class="cart-summary">
+            <div class="cart-total">
+                <span>Total: $<span id="cartTotal">0.00</span></span>
+            </div>
+            <div class="cart-actions">
+                <button class="clear-cart-btn" onclick="clearCart()">Clear Cart</button>
+                <button class="checkout-btn" onclick="checkout()">Checkout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Authentication Modal -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Login</h3>
+                <button class="close-modal" onclick="toggleAuthModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-content">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-mode="login">Login</button>
+                    <button class="auth-tab" data-mode="register">Register</button>
+                </div>
+                
+                <form class="auth-form" id="authForm">
+                    <div class="form-group">
+                        <label for="authEmail">Email</label>
+                        <input type="email" id="authEmail" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="authPassword">Password</label>
+                        <input type="password" id="authPassword" name="password" required>
+                    </div>
+                    <div class="form-group" id="confirmPasswordGroup" style="display: none;">
+                        <label for="authConfirmPassword">Confirm Password</label>
+                        <input type="password" id="authConfirmPassword" name="confirmPassword">
+                    </div>
+                    <div class="form-group" id="fullNameGroup" style="display: none;">
+                        <label for="authFullName">Full Name</label>
+                        <input type="text" id="authFullName" name="fullName">
+                    </div>
+                    <div class="form-group" id="studentIdGroup" style="display: none;">
+                        <label for="authStudentId">Student/Staff ID</label>
+                        <input type="text" id="authStudentId" name="studentId">
+                    </div>
+                    
+                    <button type="submit" class="auth-submit-btn" id="authSubmitBtn">Login</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Tracking Modal -->
+    <div class="modal-overlay" id="trackingModal">
+        <div class="modal tracking-modal">
+            <div class="modal-header">
+                <h3>Order Tracking</h3>
+                <button class="close-modal" onclick="closeTrackingModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-content">
+                <div class="order-info">
+                    <h4>Order #<span id="trackingOrderId"></span></h4>
+                    <p>Estimated Time: <span id="trackingTime"></span></p>
+                </div>
+                
+                <div class="tracking-steps">
+                    <div class="tracking-step completed">
+                        <div class="step-icon">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="step-content">
+                            <h5>Order Placed</h5>
+                            <p>Your order has been received</p>
+                        </div>
+                    </div>
+                    
+                    <div class="tracking-step active" id="preparingStep">
+                        <div class="step-icon">
+                            <i class="fas fa-utensils"></i>
+                        </div>
+                        <div class="step-content">
+                            <h5>Preparing</h5>
+                            <p>Your food is being prepared</p>
+                        </div>
+                    </div>
+                    
+                    <div class="tracking-step" id="readyStep">
+                        <div class="step-icon">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                        <div class="step-content">
+                            <h5>Ready for Pickup</h5>
+                            <p>Your order is ready</p>
+                        </div>
+                    </div>
+                    
+                    <div class="tracking-step" id="completedStep">
+                        <div class="step-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="step-content">
+                            <h5>Completed</h5>
+                            <p>Order completed</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">
+        <div class="toast-content">
+            <i class="toast-icon"></i>
+            <span class="toast-message"></span>
+        </div>
+    </div>
+
+    <script src="api.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
