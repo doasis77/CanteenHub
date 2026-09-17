@@ -1,12 +1,59 @@
-// API Configuration — uses local backend in dev, demo mode on static deploy
-const IS_DEMO = !['localhost', '127.0.0.1'].includes(window.location.hostname);
-const API_BASE_URL = IS_DEMO ? '' : `${window.location.protocol}//${window.location.hostname}:3000/api`;
+// CanteenHub API client — uses live API when available, local demo mode as fallback
+const API_BASE_URL = `${window.location.origin}/api`;
 
-// API Helper Functions
+const DEMO_KEYS = {
+  users: 'canteen_demo_users',
+  session: 'canteen_demo_session',
+  cart: 'canteen_demo_cart',
+  orders: 'canteen_demo_orders',
+};
+
+function readJson(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
 class ApiClient {
   constructor() {
     this.baseURL = API_BASE_URL;
     this.token = localStorage.getItem('authToken');
+    this.demoMode = false;
+    this.ready = this.detectMode();
+  }
+
+  async detectMode() {
+    try {
+      const response = await fetch('/health');
+      const data = await response.json();
+      this.demoMode = data.database !== 'configured';
+    } catch {
+      this.demoMode = true;
+    }
+    window.CANTEEN_DEMO_MODE = this.demoMode;
+    this.updateDemoBanner();
+    return this.demoMode;
+  }
+
+  updateDemoBanner() {
+    const banner = document.getElementById('demo-banner');
+    if (!banner) return;
+    if (this.demoMode) {
+      banner.style.display = 'block';
+      banner.textContent = 'Demo mode — browse the menu, cart, and orders locally. Connect DATABASE_URL on Vercel for live accounts.';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  async ensureReady() {
+    await this.ready;
   }
 
   setToken(token) {
@@ -19,250 +66,304 @@ class ApiClient {
   }
 
   getHeaders() {
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-    
+    const headers = { 'Content-Type': 'application/json' };
     if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+      headers.Authorization = `Bearer ${this.token}`;
     }
-    
     return headers;
   }
 
-  async request(endpoint, options = {}) {
-    if (IS_DEMO) {
-      throw new Error('Demo mode — API unavailable');
-    }
-
-    const url = `${this.baseURL}${endpoint}`;
-    const config = {
-      headers: this.getHeaders(),
-      ...options,
-    };
-
-    try {
-      const response = await fetch(url, config);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'API request failed');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('API request error:', error);
-      throw error;
-    }
+  getDemoUser() {
+    const session = readJson(DEMO_KEYS.session, null);
+    if (!session) return null;
+    const users = readJson(DEMO_KEYS.users, []);
+    return users.find((user) => user.id === session.userId) || null;
   }
 
-  // Authentication API
-  async register(userData) {
-    return this.request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
+  async request(endpoint, options = {}) {
+    await this.ensureReady();
+    if (this.demoMode) {
+      throw new Error('Demo mode active');
+    }
+
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      headers: this.getHeaders(),
+      ...options,
     });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'API request failed');
+    }
+    return data;
+  }
+
+  async register(userData) {
+    await this.ensureReady();
+    if (!this.demoMode) {
+      return this.request('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+    }
+
+    const users = readJson(DEMO_KEYS.users, []);
+    if (users.some((user) => user.email === userData.email)) {
+      throw new Error('Email already registered');
+    }
+
+    const user = {
+      id: `demo-${Date.now()}`,
+      email: userData.email,
+      fullName: userData.fullName,
+      studentId: userData.studentId,
+      loyaltyPoints: 0,
+    };
+    users.push(user);
+    writeJson(DEMO_KEYS.users, users);
+    writeJson(DEMO_KEYS.session, { userId: user.id });
+    this.setToken(`demo-token-${user.id}`);
+    return { success: true, data: { user, token: this.token } };
   }
 
   async login(credentials) {
-    const response = await this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-    
-    if (response.success && response.data.token) {
-      this.setToken(response.data.token);
+    await this.ensureReady();
+    if (!this.demoMode) {
+      const response = await this.request('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+      });
+      if (response.success && response.data.token) {
+        this.setToken(response.data.token);
+      }
+      return response;
     }
-    
-    return response;
+
+    const users = readJson(DEMO_KEYS.users, []);
+    let user = users.find((entry) => entry.email === credentials.email);
+    if (!user) {
+      user = {
+        id: `demo-${Date.now()}`,
+        email: credentials.email,
+        fullName: credentials.email.split('@')[0],
+        studentId: 'DEMO-001',
+        loyaltyPoints: 0,
+      };
+      users.push(user);
+      writeJson(DEMO_KEYS.users, users);
+    }
+
+    writeJson(DEMO_KEYS.session, { userId: user.id });
+    this.setToken(`demo-token-${user.id}`);
+    return { success: true, data: { user, token: this.token } };
   }
 
   async verifyToken() {
-    return this.request('/auth/verify');
+    await this.ensureReady();
+    if (!this.demoMode) {
+      return this.request('/auth/verify');
+    }
+
+    const user = this.getDemoUser();
+    if (!user) {
+      throw new Error('Invalid session');
+    }
+    return { success: true, data: { user } };
   }
 
-  // Menu API
-  async getMenuItems(filters = {}) {
-    const params = new URLSearchParams();
-    Object.keys(filters).forEach(key => {
-      if (filters[key] !== undefined && filters[key] !== null) {
-        params.append(key, filters[key]);
-      }
-    });
-    
-    const queryString = params.toString();
-    const endpoint = queryString ? `/menu/items?${queryString}` : '/menu/items';
-    
-    return this.request(endpoint);
+  async getMenuItems() {
+    await this.ensureReady();
+    if (!this.demoMode) {
+      return this.request('/menu/items');
+    }
+    throw new Error('Use sample menu in demo mode');
   }
 
-  async getMenuItemById(id) {
-    return this.request(`/menu/items/${id}`);
-  }
-
-  async getMenuCategories() {
-    return this.request('/menu/categories');
-  }
-
-  async searchMenuItems(query, filters = {}) {
-    const params = new URLSearchParams({ q: query });
-    Object.keys(filters).forEach(key => {
-      if (filters[key] !== undefined && filters[key] !== null) {
-        params.append(key, filters[key]);
-      }
-    });
-    
-    return this.request(`/menu/search?${params.toString()}`);
-  }
-
-  // Cart API
   async getCart() {
-    return this.request('/cart');
+    await this.ensureReady();
+    if (!this.demoMode) {
+      return this.request('/cart');
+    }
+
+    const user = this.getDemoUser();
+    const carts = readJson(DEMO_KEYS.cart, {});
+    return { success: true, data: { items: user ? carts[user.id] || [] : [] } };
   }
 
   async addToCart(itemData) {
-    return this.request('/cart/items', {
-      method: 'POST',
-      body: JSON.stringify(itemData),
-    });
+    await this.ensureReady();
+    if (!this.demoMode) {
+      return this.request('/cart/items', {
+        method: 'POST',
+        body: JSON.stringify(itemData),
+      });
+    }
+
+    const user = this.getDemoUser();
+    if (!user) throw new Error('Please login first');
+
+    const carts = readJson(DEMO_KEYS.cart, {});
+    const items = carts[user.id] || [];
+    const existing = items.find((item) => item.menuItemId === itemData.menuItemId);
+
+    if (existing) {
+      existing.quantity += itemData.quantity;
+    } else {
+      items.push({
+        id: Date.now(),
+        menuItemId: itemData.menuItemId,
+        quantity: itemData.quantity,
+      });
+    }
+
+    carts[user.id] = items;
+    writeJson(DEMO_KEYS.cart, carts);
+    return { success: true, data: { items } };
   }
 
   async updateCartItem(itemId, updateData) {
-    return this.request(`/cart/items/${itemId}`, {
-      method: 'PUT',
-      body: JSON.stringify(updateData),
-    });
+    await this.ensureReady();
+    if (!this.demoMode) {
+      return this.request(`/cart/items/${itemId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updateData),
+      });
+    }
+
+    const user = this.getDemoUser();
+    const carts = readJson(DEMO_KEYS.cart, {});
+    const items = carts[user.id] || [];
+    const item = items.find((entry) => entry.id === itemId);
+    if (item) item.quantity = updateData.quantity;
+    writeJson(DEMO_KEYS.cart, carts);
+    return { success: true, data: { items } };
   }
 
   async removeFromCart(itemId) {
-    return this.request(`/cart/items/${itemId}`, {
-      method: 'DELETE',
-    });
+    await this.ensureReady();
+    if (!this.demoMode) {
+      return this.request(`/cart/items/${itemId}`, { method: 'DELETE' });
+    }
+
+    const user = this.getDemoUser();
+    const carts = readJson(DEMO_KEYS.cart, {});
+    carts[user.id] = (carts[user.id] || []).filter((item) => item.id !== itemId);
+    writeJson(DEMO_KEYS.cart, carts);
+    return { success: true };
   }
 
   async clearCart() {
-    return this.request('/cart', {
-      method: 'DELETE',
-    });
+    await this.ensureReady();
+    if (!this.demoMode) {
+      return this.request('/cart', { method: 'DELETE' });
+    }
+
+    const user = this.getDemoUser();
+    const carts = readJson(DEMO_KEYS.cart, {});
+    carts[user.id] = [];
+    writeJson(DEMO_KEYS.cart, carts);
+    return { success: true };
   }
 
-  async getCartSummary() {
-    return this.request('/cart/summary');
-  }
-
-  // Orders API
   async createOrder(orderData) {
-    return this.request('/orders', {
-      method: 'POST',
-      body: JSON.stringify(orderData),
+    await this.ensureReady();
+    if (!this.demoMode) {
+      return this.request('/orders', {
+        method: 'POST',
+        body: JSON.stringify(orderData),
+      });
+    }
+
+    const user = this.getDemoUser();
+    const carts = readJson(DEMO_KEYS.cart, {});
+    const cartItems = carts[user.id] || [];
+    const menuItems = window.__canteenMenuItems || [];
+    const orderItems = cartItems.map((cartItem) => {
+      const menuItem = menuItems.find((entry) => entry.id === cartItem.menuItemId);
+      return {
+        name: menuItem?.name || 'Item',
+        price: menuItem?.price || 0,
+        quantity: cartItem.quantity,
+      };
     });
+    const total = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const pointsEarned = Math.floor(total);
+
+    const order = {
+      id: `ORD-${Date.now()}`,
+      userId: user.id,
+      items: orderItems,
+      total,
+      status: 'preparing',
+      pointsEarned,
+      createdAt: new Date().toISOString(),
+    };
+
+    user.loyaltyPoints = (user.loyaltyPoints || 0) + pointsEarned;
+    const users = readJson(DEMO_KEYS.users, []);
+    writeJson(DEMO_KEYS.users, users.map((entry) => (entry.id === user.id ? user : entry)));
+
+    const allOrders = readJson(DEMO_KEYS.orders, []);
+    allOrders.unshift(order);
+    writeJson(DEMO_KEYS.orders, allOrders);
+    carts[user.id] = [];
+    writeJson(DEMO_KEYS.cart, carts);
+
+    return { success: true, data: { order, pointsEarned } };
   }
 
-  async getOrders(filters = {}) {
-    const params = new URLSearchParams();
-    Object.keys(filters).forEach(key => {
-      if (filters[key] !== undefined && filters[key] !== null) {
-        params.append(key, filters[key]);
-      }
-    });
-    
-    const queryString = params.toString();
-    const endpoint = queryString ? `/orders?${queryString}` : '/orders';
-    
-    return this.request(endpoint);
+  async getOrders() {
+    await this.ensureReady();
+    if (!this.demoMode) {
+      return this.request('/orders');
+    }
+
+    const user = this.getDemoUser();
+    const allOrders = readJson(DEMO_KEYS.orders, []);
+    return {
+      success: true,
+      data: allOrders.filter((order) => order.userId === user?.id),
+    };
   }
 
-  async getOrderById(orderId) {
-    return this.request(`/orders/${orderId}`);
+  // Pass-through stubs for unused endpoints in demo mode
+  async getMenuItemById(id) { return this.request(`/menu/items/${id}`); }
+  async getMenuCategories() { return this.request('/menu/categories'); }
+  async searchMenuItems(query, filters = {}) {
+    const params = new URLSearchParams({ q: query, ...filters });
+    return this.request(`/menu/search?${params.toString()}`);
   }
-
-  async cancelOrder(orderId) {
-    return this.request(`/orders/${orderId}/cancel`, {
-      method: 'PUT',
-    });
-  }
-
-  // User API
-  async getUserProfile() {
-    return this.request('/users/profile');
-  }
-
+  async getCartSummary() { return this.request('/cart/summary'); }
+  async getOrderById(orderId) { return this.request(`/orders/${orderId}`); }
+  async cancelOrder(orderId) { return this.request(`/orders/${orderId}/cancel`, { method: 'PUT' }); }
+  async getUserProfile() { return this.request('/users/profile'); }
   async updateUserProfile(profileData) {
-    return this.request('/users/profile', {
-      method: 'PUT',
-      body: JSON.stringify(profileData),
-    });
+    return this.request('/users/profile', { method: 'PUT', body: JSON.stringify(profileData) });
   }
-
   async updatePassword(passwordData) {
-    return this.request('/users/password', {
-      method: 'PUT',
-      body: JSON.stringify(passwordData),
-    });
+    return this.request('/users/password', { method: 'PUT', body: JSON.stringify(passwordData) });
   }
-
   async updateDietaryPreferences(preferences) {
-    return this.request('/users/dietary-preferences', {
-      method: 'PUT',
-      body: JSON.stringify(preferences),
-    });
+    return this.request('/users/dietary-preferences', { method: 'PUT', body: JSON.stringify(preferences) });
   }
-
   async addAllergy(allergyData) {
-    return this.request('/users/allergies', {
-      method: 'POST',
-      body: JSON.stringify(allergyData),
-    });
+    return this.request('/users/allergies', { method: 'POST', body: JSON.stringify(allergyData) });
   }
-
   async removeAllergy(allergyId) {
-    return this.request(`/users/allergies/${allergyId}`, {
-      method: 'DELETE',
-    });
+    return this.request(`/users/allergies/${allergyId}`, { method: 'DELETE' });
   }
-
-  async getUserStats() {
-    return this.request('/users/stats');
-  }
-
-  // Loyalty API
-  async getLoyaltyBalance() {
-    return this.request('/loyalty/balance');
-  }
-
+  async getUserStats() { return this.request('/users/stats'); }
+  async getLoyaltyBalance() { return this.request('/loyalty/balance'); }
   async getLoyaltyTransactions(filters = {}) {
-    const params = new URLSearchParams();
-    Object.keys(filters).forEach(key => {
-      if (filters[key] !== undefined && filters[key] !== null) {
-        params.append(key, filters[key]);
-      }
-    });
-    
-    const queryString = params.toString();
-    const endpoint = queryString ? `/loyalty/transactions?${queryString}` : '/loyalty/transactions';
-    
+    const params = new URLSearchParams(filters);
+    const endpoint = params.toString() ? `/loyalty/transactions?${params}` : '/loyalty/transactions';
     return this.request(endpoint);
   }
-
   async redeemPoints(pointsData) {
-    return this.request('/loyalty/redeem', {
-      method: 'POST',
-      body: JSON.stringify(pointsData),
-    });
+    return this.request('/loyalty/redeem', { method: 'POST', body: JSON.stringify(pointsData) });
   }
-
-  async getLoyaltyRewards() {
-    return this.request('/loyalty/rewards');
-  }
-
-  async getLoyaltyStats() {
-    return this.request('/loyalty/stats');
-  }
+  async getLoyaltyRewards() { return this.request('/loyalty/rewards'); }
+  async getLoyaltyStats() { return this.request('/loyalty/stats'); }
 }
 
-// Create global API client instance
 const api = new ApiClient();
-
-// Export for use in other files
 window.api = api;
-

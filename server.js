@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -14,13 +15,14 @@ const loyaltyRoutes = require('./routes/loyalty');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 
-// Rate limiting
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS, 10) || 100,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -28,30 +30,24 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-// CORS configuration
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || true,
   credentials: true,
-  optionsSuccessStatus: 200
-};
+  optionsSuccessStatus: 200,
+}));
 
-app.use(cors(corsOptions));
-
-// Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    database: process.env.DATABASE_URL ? 'configured' : 'not configured',
   });
 });
 
-// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/cart', cartRoutes);
@@ -59,26 +55,41 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 
-// 404 handler
-app.use('*', (req, res) => {
+app.use(express.static(path.join(__dirname), {
+  index: false,
+  extensions: ['html', 'css', 'js'],
+}));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  if (path.extname(req.path)) {
+    return res.status(404).send('Not found');
+  }
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.use('/api/*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found'
+    message: 'Route not found',
   });
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
-  
-  // Default error
+
   let error = {
     success: false,
     message: 'Internal server error',
-    statusCode: 500
+    statusCode: 500,
   };
 
-  // Handle specific error types
   if (err.name === 'ValidationError') {
     error.message = 'Validation error';
     error.statusCode = 400;
@@ -86,10 +97,10 @@ app.use((err, req, res, next) => {
   } else if (err.name === 'UnauthorizedError') {
     error.message = 'Unauthorized';
     error.statusCode = 401;
-  } else if (err.code === '23505') { // PostgreSQL unique violation
+  } else if (err.code === '23505') {
     error.message = 'Resource already exists';
     error.statusCode = 409;
-  } else if (err.code === '23503') { // PostgreSQL foreign key violation
+  } else if (err.code === '23503') {
     error.message = 'Referenced resource not found';
     error.statusCode = 400;
   } else if (err.message) {
@@ -100,12 +111,11 @@ app.use((err, req, res, next) => {
   res.status(error.statusCode).json(error);
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 CanteenHub API server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`CanteenHub running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+  });
+}
 
 module.exports = app;
-

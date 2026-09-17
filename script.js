@@ -162,11 +162,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function initializeApp() {
     try {
-        // Wait for API client to be available
         if (typeof window.api !== 'undefined') {
             api = window.api;
         } else {
-            // Fallback: wait a bit for api.js to load
             await new Promise(resolve => setTimeout(resolve, 100));
             api = window.api;
         }
@@ -176,9 +174,12 @@ async function initializeApp() {
             return;
         }
 
-        // Load data from API
+        await api.ensureReady();
         await loadUserData();
         await loadMenuData();
+        window.__canteenMenuItems = menuItems;
+        await loadCartData();
+        await loadOrdersData();
         
         // Initialize UI
         updateCartDisplay();
@@ -696,11 +697,52 @@ async function checkout() {
     }
 }
 
+async function loadCartData() {
+    if (!currentUser || !api) return;
+
+    try {
+        const response = await api.getCart();
+        if (response.success) {
+            const rawItems = response.data.items || [];
+            cart = rawItems.map((item) => {
+                const menuItem = menuItems.find((entry) => entry.id === item.menuItemId);
+                return {
+                    id: item.id,
+                    menuItemId: item.menuItemId,
+                    quantity: item.quantity,
+                    name: menuItem?.name || 'Item',
+                    price: menuItem?.price || 0,
+                    image: menuItem?.image || '🍽️',
+                    customizations: item.customizations,
+                };
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load cart data:', error);
+        cart = [];
+    }
+}
+
 // Order Functions
-function loadOrdersData() {
-    const savedOrders = localStorage.getItem('orders');
-    if (savedOrders) {
-        orders = JSON.parse(savedOrders);
+async function loadOrdersData() {
+    if (!currentUser || !api) return;
+
+    try {
+        const response = await api.getOrders();
+        if (response.success) {
+            orders = response.data || [];
+        }
+    } catch (error) {
+        console.error('Failed to load orders data:', error);
+        orders = readStoredOrders();
+    }
+}
+
+function readStoredOrders() {
+    try {
+        return JSON.parse(localStorage.getItem('orders') || '[]');
+    } catch {
+        return [];
     }
 }
 
@@ -981,34 +1023,6 @@ async function loadUserData() {
         if (api) {
             api.setToken(null);
         }
-    }
-}
-
-async function loadCartData() {
-    if (!currentUser || !api) return;
-    
-    try {
-        const response = await api.getCart();
-        if (response.success) {
-            cart = response.data.items || [];
-        }
-    } catch (error) {
-        console.error('Failed to load cart data:', error);
-        cart = [];
-    }
-}
-
-async function loadOrdersData() {
-    if (!currentUser || !api) return;
-    
-    try {
-        const response = await api.getOrders();
-        if (response.success) {
-            orders = response.data || [];
-        }
-    } catch (error) {
-        console.error('Failed to load orders data:', error);
-        orders = [];
     }
 }
 
