@@ -11,8 +11,7 @@
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "db:setup": "prisma db execute --file prisma/migrate-extend.sql && prisma db execute --file prisma/migrate-roles.sql && prisma db execute --file prisma/migrate-invites.sql && prisma db push --accept-data-loss && prisma db seed",
-    "db:fix-enums": "prisma db execute --file prisma/migrate-enums.sql",
-    "postinstall": "prisma generate"
+    "db:fix-enums": "prisma db execute --file prisma/migrate-enums.sql"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -49,5 +48,12 @@
   },
   "engines": {
     "node": "24.x"
+  },
+  "allowScripts": {
+    "@prisma/client": true,
+    "@prisma/engines": true,
+    "esbuild": true,
+    "prisma": true,
+    "unrs-resolver": true
   }
 }
