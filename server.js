@@ -55,24 +55,28 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 
-app.use(express.static(path.join(__dirname), {
-  index: false,
-  extensions: ['html', 'css', 'js'],
-}));
+const publicDir = path.join(__dirname, 'public');
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+if (!process.env.VERCEL) {
+  app.use(express.static(publicDir, {
+    index: false,
+    extensions: ['html', 'css', 'js'],
+  }));
 
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) {
-    return next();
-  }
-  if (path.extname(req.path)) {
-    return res.status(404).send('Not found');
-  }
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    if (path.extname(req.path)) {
+      return res.status(404).send('Not found');
+    }
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+}
 
 app.use('/api/*', (req, res) => {
   res.status(404).json({
