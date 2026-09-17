@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { NextRequest } from 'next/server';
-import { UserRole } from './db-types';
+import { UserRole, asUserRole } from './db-types';
 import { prisma } from './prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
@@ -58,7 +58,7 @@ export async function rotateRefreshToken(oldToken: string) {
   const newRefresh = await createRefreshToken(user.id);
   const accessToken = signAccessToken({
     userId: user.id,
-    role: user.role,
+    role: asUserRole(user.role),
     email: user.email,
   });
 
@@ -99,8 +99,8 @@ export async function getAuthUser(req: NextRequest) {
   return user;
 }
 
-export function requireRole(userRole: UserRole, allowed: UserRole[]) {
-  return allowed.includes(userRole);
+export function requireRole(userRole: string, allowed: UserRole[]) {
+  return allowed.includes(userRole as UserRole);
 }
 
 export function generateEmailVerifyToken() {

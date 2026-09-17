@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { success, error } from '@/lib/api-response';
 import { verifyPassword, signAccessToken, createRefreshToken } from '@/lib/auth';
+import { asUserRole } from '@/lib/db-types';
 import { loginSchema } from '@/lib/validations';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
 
     const accessToken = signAccessToken({
       userId: user.id,
-      role: user.role,
+      role: asUserRole(user.role),
       email: user.email,
     });
     const refreshToken = await createRefreshToken(user.id);
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
         email: user.email,
         fullName: user.fullName,
         studentId: user.studentId,
-        role: user.role,
+        role: asUserRole(user.role),
         loyaltyPoints: user.loyaltyPoints,
         loyaltyTier: user.loyaltyTier,
         emailVerified: user.emailVerified,

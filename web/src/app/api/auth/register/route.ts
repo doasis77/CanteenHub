@@ -6,6 +6,7 @@ import {
   createRefreshToken,
   generateEmailVerifyToken,
 } from '@/lib/auth';
+import { asUserRole } from '@/lib/db-types';
 import { registerSchema } from '@/lib/validations';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { getSystemSettings, isUniversityEmail } from '@/lib/settings';
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
 
     const accessToken = signAccessToken({
       userId: user.id,
-      role: user.role,
+      role: asUserRole(user.role),
       email: user.email,
     });
     const refreshToken = await createRefreshToken(user.id);
@@ -96,7 +97,7 @@ export async function POST(req: Request) {
           email: user.email,
           fullName: user.fullName,
           studentId: user.studentId,
-          role: user.role,
+          role: asUserRole(user.role),
           loyaltyPoints: user.loyaltyPoints,
           emailVerified: user.emailVerified,
         },

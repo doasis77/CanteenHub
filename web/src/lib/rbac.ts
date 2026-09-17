@@ -5,21 +5,25 @@ import { UserRole } from './db-types';
 
 type AuthUser = NonNullable<Awaited<ReturnType<typeof getAuthUser>>>;
 
-export async function requireAuth(req: NextRequest) {
+export type AuthResult = {
+  error?: ReturnType<typeof error>;
+  user?: AuthUser;
+};
+
+export async function requireAuth(req: NextRequest): Promise<AuthResult> {
   const user = await getAuthUser(req);
   if (!user) return { error: error('Unauthorized', 401) };
   if (user.isActive === false) return { error: error('Account deactivated', 403) };
-  return { user: user as AuthUser & { isActive?: boolean } };
+  return { user };
 }
 
-export async function requireRoles(req: NextRequest, roles: UserRole[]) {
+export async function requireRoles(req: NextRequest, roles: UserRole[]): Promise<AuthResult> {
   const result = await requireAuth(req);
-  if ('error' in result && result.error) return result;
-  const { user } = result as { user: AuthUser };
-  if (!roles.includes(user.role as UserRole)) {
+  if (result.error) return result;
+  if (!result.user || !roles.includes(result.user.role as UserRole)) {
     return { error: error('Forbidden', 403) };
   }
-  return { user };
+  return result;
 }
 
 export const Permissions = {
