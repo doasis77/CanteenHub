@@ -1,5 +1,6 @@
-// API Configuration
-const API_BASE_URL = 'http://localhost:3000/api';
+// API Configuration — uses local backend in dev, demo mode on static deploy
+const IS_DEMO = !['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_BASE_URL = IS_DEMO ? '' : `${window.location.protocol}//${window.location.hostname}:3000/api`;
 
 // API Helper Functions
 class ApiClient {
@@ -30,6 +31,10 @@ class ApiClient {
   }
 
   async request(endpoint, options = {}) {
+    if (IS_DEMO) {
+      throw new Error('Demo mode — API unavailable');
+    }
+
     const url = `${this.baseURL}${endpoint}`;
     const config = {
       headers: this.getHeaders(),
