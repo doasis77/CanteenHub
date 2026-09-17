@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "installCommand": "npm install --omit=dev",
   "builds": [
     { "src": "public/**", "use": "@vercel/static" },
     { "src": "server.js", "use": "@vercel/node" }
