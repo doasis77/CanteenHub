@@ -1,14 +1,6 @@
 {
   "version": 2,
-  "installCommand": "npm install --omit=dev",
   "builds": [
-    { "src": "public/**", "use": "@vercel/static" },
-    { "src": "server.js", "use": "@vercel/node" }
-  ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/server.js" },
-    { "src": "/health", "dest": "/server.js" },
-    { "src": "/", "dest": "/public/index.html" },
-    { "src": "/(.*)", "dest": "/public/$1" }
+    { "src": "web/package.json", "use": "@vercel/next" }
   ]
 }

@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Campus Canteen",
+    "slug": "campus-canteen",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "canteen",
+    "splash": {
+      "backgroundColor": "#ea580c"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#ea580c"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}

@@ -1,16 +1,17 @@
 {
-  "name": "canteenhub-backend",
-  "version": "1.0.0",
-  "description": "Backend API for CanteenHub ordering platform",
-  "main": "server.js",
+  "name": "canteenhub",
+  "version": "2.0.0",
+  "description": "Campus canteen platform — Next.js web app, Expo mobile app, and Neon PostgreSQL",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev:web": "npm run dev --prefix web",
+    "build:web": "npm run build --prefix web",
+    "dev:mobile": "npm run start --prefix mobile",
+    "start": "npm run start --prefix web",
     "test": "jest",
     "migrate": "node database/migrate.js"
   },
-  "keywords": ["canteen", "ordering", "postgresql", "express"],
-  "author": "CanteenHub Team",
+  "keywords": ["canteen", "ordering", "nextjs", "expo", "postgresql", "neon"],  "author": "CanteenHub Team",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
