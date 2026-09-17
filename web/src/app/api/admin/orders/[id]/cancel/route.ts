@@ -3,22 +3,23 @@ import { prisma } from '@/lib/prisma';
 import { success, error } from '@/lib/api-response';
 import { requireRoles, Permissions } from '@/lib/rbac';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const auth = await requireRoles(req, Permissions.admin);
   if (auth.error) return auth.error;
 
   try {
-    const order = await prisma.order.findUnique({ where: { id: params.id } });
+    const order = await prisma.order.findUnique({ where: { id } });
     if (!order) return error('Order not found', 404);
     if (order.status === 'COMPLETED') return error('Cannot cancel completed order', 400);
 
     await prisma.$transaction(async (tx) => {
       await tx.order.update({
-        where: { id: params.id },
+        where: { id },
         data: { status: 'CANCELLED' },
       });
       await tx.paymentRecord.updateMany({
-        where: { orderId: params.id },
+        where: { orderId: id },
         data: { status: 'REFUNDED' },
       });
       if (order.pointsRedeemed > 0) {

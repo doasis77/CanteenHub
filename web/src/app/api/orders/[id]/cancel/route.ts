@@ -3,12 +3,13 @@ import { prisma } from '@/lib/prisma';
 import { success, error } from '@/lib/api-response';
 import { getAuthUser } from '@/lib/auth';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getAuthUser(req);
   if (!user) return error('Unauthorized', 401);
 
   try {
-    const order = await prisma.order.findUnique({ where: { id: params.id } });
+    const order = await prisma.order.findUnique({ where: { id } });
     if (!order) return error('Order not found', 404);
     if (order.userId !== user.id) return error('Forbidden', 403);
 
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     await prisma.$transaction(async (tx) => {
       await tx.order.update({
-        where: { id: params.id },
+        where: { id },
         data: { status: 'CANCELLED' },
       });
 

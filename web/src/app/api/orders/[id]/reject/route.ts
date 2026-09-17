@@ -4,7 +4,8 @@ import { success, error } from '@/lib/api-response';
 import { requireRoles, Permissions } from '@/lib/rbac';
 import { rejectOrderSchema } from '@/lib/validations';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const auth = await requireRoles(req, Permissions.staff);
   if (auth.error) return auth.error;
 
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const parsed = rejectOrderSchema.safeParse(body);
     if (!parsed.success) return error('Validation error', 400, parsed.error.flatten());
 
-    const order = await prisma.order.findUnique({ where: { id: params.id } });
+    const order = await prisma.order.findUnique({ where: { id } });
     if (!order) return error('Order not found', 404);
     if (order.status !== 'PLACED') {
       return error('Only new orders can be rejected', 400);
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     await prisma.$transaction(async (tx) => {
       await tx.order.update({
-        where: { id: params.id },
+        where: { id },
         data: { status: 'CANCELLED', rejectionReason: parsed.data.reason },
       });
       await tx.notification.create({

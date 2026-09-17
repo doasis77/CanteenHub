@@ -4,13 +4,14 @@ import { success, error } from '@/lib/api-response';
 import { getAuthUser } from '@/lib/auth';
 import { getLoyaltyConfig } from '@/lib/loyalty';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getAuthUser(req);
   if (!user) return error('Unauthorized', 401);
 
   try {
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { items: { include: { menuItem: true } } },
     });
 

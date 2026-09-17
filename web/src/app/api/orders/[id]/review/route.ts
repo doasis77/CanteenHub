@@ -4,7 +4,8 @@ import { success, error } from '@/lib/api-response';
 import { requireAuth } from '@/lib/rbac';
 import { reviewSchema } from '@/lib/validations';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const auth = await requireAuth(req);
   if (auth.error) return auth.error;
 
@@ -13,12 +14,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const parsed = reviewSchema.safeParse(body);
     if (!parsed.success) return error('Validation error', 400, parsed.error.flatten());
 
-    const order = await prisma.order.findUnique({ where: { id: params.id } });
+    const order = await prisma.order.findUnique({ where: { id } });
     if (!order || order.userId !== auth.user!.id) return error('Order not found', 404);
     if (order.status !== 'COMPLETED') return error('Only completed orders can be reviewed', 400);
 
     const updated = await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: { rating: parsed.data.rating, review: parsed.data.review },
     });
 

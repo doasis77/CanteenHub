@@ -12,7 +12,8 @@ const STATUS_MESSAGES: Record<string, string> = {
   CANCELLED: 'Your order has been cancelled.',
 };
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getAuthUser(req);
   if (!user || !requireRole(user.role, ['STAFF', 'ADMIN'])) {
     return error('Forbidden', 403);
@@ -23,12 +24,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const parsed = orderStatusSchema.safeParse(body);
     if (!parsed.success) return error('Validation error', 400, parsed.error.flatten());
 
-    const order = await prisma.order.findUnique({ where: { id: params.id } });
+    const order = await prisma.order.findUnique({ where: { id } });
     if (!order) return error('Order not found', 404);
 
     const updated = await prisma.$transaction(async (tx) => {
       const o = await tx.order.update({
-        where: { id: params.id },
+        where: { id },
         data: { status: parsed.data.status },
         include: { items: true, user: true },
       });
